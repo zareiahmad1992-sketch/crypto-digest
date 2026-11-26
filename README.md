@@ -81,3 +81,152 @@ crypto-digest/
     🪙 🇮🇷 [بازار داخلی • طلا، سکه و دلار] ➔ #طلای_ایران #دلار_آزاد
     🥇 🌍 [انس جهانی و بازار بین‌الملل] ➔ #انس_طلا #فارکس
     💎 🎙 [دیدگاه تحلیل‌گران منتخب] ➔ #تحلیل_تخصصی
+
+
+
+---
+
+### بخش چهارم: کدهای آپدیت‌شده با دسته‌بندی و ظاهر تفکیک‌شده
+
+#### ۱. فایل `analyst_forwarder.py` (تشخیص هوشمند طلا، سکه، دلار و کریپتو):
+
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+analyst_forwarder.py — رصد و بازنشر هوشمند تحلیل‌های طلا، سکه، دلار، انس و کریپتو
+با تم گرافیکی مجزا برای هر بازار
+"""
+import os
+import re
+import sys
+import json
+import time
+from pathlib import Path
+import requests
+from bs4 import BeautifulSoup
+
+STATE_FILE = Path("data/analysts_state.json")
+
+CHANNELS = [
+    {
+        "handle": "vebinar1404",
+        "name": "وبینار آینده طلا و دلار",
+        "tag": "#طلای_ایران #دلار_آزاد",
+        "badge": "🪙 🇮🇷 <b>[تحلیل بازار داخل • طلا و دلار]</b>",
+        "type": "gold_ir"
+    },
+    {
+        "handle": "drarashamini",
+        "name": "دکتر آرش امینی",
+        "tag": "#اقتصاد_کلان #بازار_ارز",
+        "badge": "💵 📊 <b>[دیدگاه اقتصاد کلان و ارز]</b>",
+        "type": "macro"
+    },
+    {
+        "handle": "rtmyashtrader",
+        "name": "آرش تریدر (Rhythm Trader)",
+        "tag": "#انس_جهانی #فارکس",
+        "badge": "🥇 🌍 <b>[تحلیل انس طلا (XAUUSD) و فارکس]</b>",
+        "type": "forex"
+    },
+    {
+        "handle": "bitfa",
+        "name": "بیتفا (Bitfa)",
+        "tag": "#تحلیل_کریپتو #بیت_کوین",
+        "badge": "💎 📈 <b>[تحلیل تخصصی کریپتو]</b>",
+        "type": "crypto"
+    },
+    {
+        "handle": "hamyar_crypto",
+        "name": "همیار کریپتو",
+        "tag": "#تکنیکال_کریپتو",
+        "badge": "💎 📊 <b>[تکنیکال و سناریوهای مارکت]</b>",
+        "type": "crypto"
+    },
+]
+
+HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+AD_FILTER = re.compile(r"کد تخفیف|ثبت نام|تخفیف ویژه|خرید پکیج|واریز و برداشت|ایر‌دراپ|airdrop|پاداش", re.I)
+
+def load_state():
+    if not STATE_FILE.exists(): return {}
+    try: return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except: return {}
+
+def save_state(s):
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temp = STATE_FILE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(STATE_FILE)
+
+def send_post(token, chat_id, text, photo_url=None):
+    if photo_url:
+        url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        payload = {"chat_id": chat_id, "photo": photo_url, "caption": text[:1024], "parse_mode": "HTML"}
+    else:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": text[:4000], "parse_mode": "HTML", "disable_web_page_preview": True}
+    try:
+        r = requests.post(url, json=payload, timeout=20)
+        return r.status_code == 200
+    except:
+        return False
+
+def process():
+    token = os.getenv("BOT_TOKEN", "").strip()
+    chat_id = (os.getenv("CHANNEL_ID") or os.getenv("CHAT_ID") or "").strip()
+    if not token or not chat_id: return
+
+    state = load_state()
+    updated = dict(state)
+
+    for ch in CHANNELS:
+        handle = ch["handle"]
+        last_id = state.get(handle, 0)
+        try:
+            r = requests.get(f"https://t.me/s/{handle}", headers=HEADERS, timeout=15)
+            if r.status_code != 200: continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            msgs = soup.select(".tgme_widget_message")
+            newest = last_id
+
+            for m in msgs:
+                pid_raw = m.get("data-post", "").split("/")[-1]
+                if not pid_raw.isdigit(): continue
+                pid = int(pid_raw)
+                if pid <= last_id: continue
+                if pid > newest: newest = pid
+
+                txt = m.select_one(".tgme_widget_message_text")
+                raw = txt.get_text("\n").strip() if txt else ""
+                if AD_FILTER.search(raw): continue
+
+                p_wrap = m.select_one(".tgme_widget_message_photo_wrap")
+                if len(raw) < 20 and not p_wrap: continue
+
+                p_url = None
+                if p_wrap and "background-image:url('" in p_wrap.get("style", ""):
+                    p_url = p_wrap["style"].split("url('")[1].split("')")[0]
+
+                raw = re.sub(r"t\.me/\S+|@\w+", "", raw).strip()
+
+                msg = f"""{ch['badge']}
+━━━━━━━━━━━━━━━━━━━━
+{raw}
+
+🏷 <b>منبع:</b> {ch['name']}
+🔗 <a href='https://t.me/{handle}/{pid}'>مشاهده در کانال اصلی</a>
+{ch['tag']}"""
+
+                send_post(token, chat_id, msg, p_url)
+                time.sleep(1.5)
+
+            updated[handle] = newest
+        except Exception as e:
+            print(f"Error {handle}: {e}")
+
+    save_state(updated)
+
+if __name__ == "__main__":
+    process()
