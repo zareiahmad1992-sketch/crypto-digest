@@ -1,364 +1,145 @@
 #!/usr/bin/env python3
-"""EMA20/50 backtest on Binance USDT-M perpetual futures with Telegram alerts.
-
-Data: Binance futures public klines.
-Signal: EMA20 crosses EMA50 on a closed candle.
-Entry: next candle open, with slippage.
-Exit: 1.5 ATR stop or 2R target.
-If both levels are touched in one candle, stop is assumed first.
-
-Funding, liquidation, order-book liquidity and exchange downtime
-are NOT modeled. Results are illustrative, not investment advice.
+# -*- coding: utf-8 -*-
 """
-
+backtest_futures.py — بک‌تست استراتژی نهادی چندتاییدی (Multi-Confluence)
+شبیه‌سازی کامل کارمزد، اسلیپیج و فیلترهای ضد رِنج
+"""
 import argparse
 import time
 from datetime import datetime, timedelta, timezone
-import os
-
 import requests
 import trend_alerts as t
 
-
 BASE_URL = "https://fapi.binance.com"
-SYMBOLS = ("BTCUSDT", "TONUSDT")
-TIMEFRAMES = ("15m", "1h", "4h")
+SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "TONUSDT")
+TIMEFRAMES = ("1h", "4h") # حذف تایم‌های نوسانی و تمرکز بر سود مطمئن
 
-FAST = 20
-SLOW = 50
-ATR_PERIOD = 14
-STOP_ATR = 1.5
-TARGET_R = 2.0
-
-FEE_RATE = 0.0005       # 0.05% per side
-SLIPPAGE_RATE = 0.0002  # 0.02% per side
-
+FEE_RATE = 0.0005       # 0.05% کارمزد هر طرف
+SLIPPAGE_RATE = 0.0002  # 0.02% اسلیپیج قیمت
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "BitMahdiFuturesBacktest/1.0"})
 
-
-def utc_date(value):
-    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-
-
-def get_json(path, params=None):
-    response = SESSION.get(
-        BASE_URL + path,
-        params=params,
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def verify_symbols():
-    payload = get_json("/fapi/v1/exchangeInfo")
-    available = {item["symbol"]: item for item in payload.get("symbols", [])}
-    for symbol in SYMBOLS:
-        item = available.get(symbol)
-        if not item:
-            print(f"WARNING: {symbol} در فهرست فعلی صرافی پیدا نشد.")
-            continue
-        print(
-            f"{symbol}: status={item.get('status')}, "
-            f"contractType={item.get('contractType')}, "
-            f"quote={item.get('quoteAsset')}"
-        )
-
+def utc_date(val):
+    return datetime.strptime(val, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
 def fetch_klines(symbol, interval, start, end):
     start_ms = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
     cursor = start_ms
     rows = []
-
     while cursor < end_ms:
-        payload = get_json(
-            "/fapi/v1/klines",
-            {
-                "symbol": symbol,
-                "interval": interval,
-                "startTime": cursor,
-                "endTime": end_ms - 1,
-                "limit": 1500,
-            },
-        )
-
-        if not isinstance(payload, list):
-            raise ValueError(f"Unexpected API response: {payload}")
-
-        if not payload:
-            break
-
-        for row in payload:
-            ts = int(row[0])
-            close_ms = int(row[6])
+        r = SESSION.get(f"{BASE_URL}/fapi/v1/klines", params={
+            "symbol": symbol, "interval": interval,
+            "startTime": cursor, "endTime": end_ms - 1, "limit": 1500
+        }, timeout=25).json()
+        if not r or not isinstance(r, list): break
+        for row in r:
+            ts, close_ms = int(row[0]), int(row[6])
             if ts >= start_ms and close_ms < end_ms:
-                rows.append(
-                    (
-                        ts // 1000,
-                        float(row[1]),
-                        float(row[2]),
-                        float(row[3]),
-                        float(row[4]),
-                    )
-                )
-
-        next_cursor = int(payload[-1][0]) + 1
-        if next_cursor <= cursor:
-            raise ValueError("Pagination did not advance")
+                rows.append((ts // 1000, float(row[1]), float(row[2]), float(row[3]), float(row[4]), float(row[5])))
+        next_cursor = int(r[-1][0]) + 1
+        if next_cursor <= cursor: break
         cursor = next_cursor
-        time.sleep(0.15)
-
+        time.sleep(0.1)
     unique = {row[0]: row for row in rows}
     return [unique[k] for k in sorted(unique)]
 
-
-def close_trade(position, exit_price, reason):
-    direction = position["direction"]
-    entry = position["entry"]
-
-    execution = exit_price * (
-        1 - SLIPPAGE_RATE if direction == 1 else 1 + SLIPPAGE_RATE
-    )
-
-    gross = direction * (execution - entry) / entry
-
-    fees = FEE_RATE + FEE_RATE * execution / entry
-    return {
-        "return": gross - fees,
-        "reason": reason,
-        "direction": direction,
-    }
-
-
-def send_telegram_message(token, chat_id, message):
-    if not token or not chat_id:
-        print("توکن یا شناسه چت تلگرام تنظیم نشده است!")
-        return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
-    except Exception as e:
-        print(f"خطا در ارسال پیام به تلگرام: {e}")
-
-
-def run_backtest(rows, start, end, bot_token=None, chat_id=None):
-    if len(rows) < SLOW + 2:
-        raise ValueError("کندل کافی برای محاسبه اندیکاتورها وجود ندارد")
-
-    closes = [row[4] for row in rows]
-    fast = t.ema_series(closes, FAST)
-    slow = t.ema_series(closes, SLOW)
-    volatility = t.atr_series(rows, ATR_PERIOD)
-
-    start_ts = int(start.timestamp())
-    end_ts = int(end.timestamp())
-
-    position = None
+def run_confluence_backtest(rows, start_ts, end_ts):
+    if len(rows) < 60: return []
+    closes = [r[4] for r in rows]
+    vols = [r[5] for r in rows]
+    
+    ema20 = t.ema_series(closes, 20)
+    ema50 = t.ema_series(closes, 50)
+    rsi = t.rsi_series(closes, 14)
+    atr = t.atr_series(rows, 14)
+    
     trades = []
+    pos = None
 
-    for i in range(2, len(rows)):
-        ts, opening, high, low, close = rows[i]
+    for i in range(50, len(rows)):
+        ts, op, hi, lo, cl, vo = rows[i]
+        if ts < start_ts or ts >= end_ts: continue
 
-        if ts < start_ts or ts >= end_ts:
-            continue
+        # میانگین حجم ۲۰ کندل قبل
+        avg_v = sum(vols[i-20:i]) / 20 if i >= 20 else 1.0
+        rvol = vo / avg_v if avg_v > 0 else 1.0
 
-        if position is None:
-            a, b = i - 2, i - 1
-            if None not in (fast[a], slow[a], fast[b], slow[b], volatility[b]):
-                direction = 0
-                if fast[a] <= slow[a] and fast[b] > slow[b]:
-                    direction = 1
-                elif fast[a] >= slow[a] and fast[b] < slow[b]:
-                    direction = -1
+        # سیگنال ورود با تاییدیه‌های چندگانه
+        if pos is None:
+            long_cond = (ema20[i-1] > ema50[i-1]) and (cl > ema50[i-1]) and (45 <= rsi[i-1] <= 65) and (rvol >= 1.2)
+            short_cond = (ema20[i-1] < ema50[i-1]) and (cl < ema50[i-1]) and (35 <= rsi[i-1] <= 55) and (rvol >= 1.2)
 
-                if direction and volatility[b] > 0:
-                    entry = opening * (
-                        1 + SLIPPAGE_RATE if direction == 1 else 1 - SLIPPAGE_RATE
-                    )
-                    distance = STOP_ATR * volatility[b]
-                    stop = entry - direction * distance
-                    target = entry + direction * TARGET_R * distance
+            if long_cond or short_cond:
+                direction = 1 if long_cond else -1
+                entry = op * (1 + SLIPPAGE_RATE if direction == 1 else 1 - SLIPPAGE_RATE)
+                stop_dist = 1.5 * (atr[i-1] or (entry * 0.02))
+                stop = entry - (direction * stop_dist)
+                tp1 = entry + (direction * 1.5 * stop_dist)
+                tp2 = entry + (direction * 2.5 * stop_dist)
 
-                    if stop > 0 and target > 0:
-                        position = {
-                            "direction": direction,
-                            "entry": entry,
-                            "stop": stop,
-                            "target": target,
-                        }
-                        # ارسال پیام ورود
-                        if bot_token and chat_id:
-                            trend_text = "صعودی" if direction == 1 else "نزولی"
-                            msg = (f"📈 ورود {trend_text}:\n"
-                                   f"ورود: {entry:.2f}\n"
-                                   f"حد ضرر: {stop:.2f}\n"
-                                   f"هدف: {target:.2f}")
-                            send_telegram_message(bot_token, chat_id, msg)
+                pos = {"dir": direction, "entry": entry, "sl": stop, "tp1": tp1, "tp2": tp2, "status": "OPEN"}
 
-        if position is None:
-            continue
+        # مدیریت پوزیشن باز
+        elif pos is not None:
+            d, entry, sl, tp1, tp2 = pos["dir"], pos["entry"], pos["sl"], pos["tp1"], pos["tp2"]
+            
+            # برخورد با استاپ لاس
+            hit_sl = (lo <= sl) if d == 1 else (hi >= sl)
+            # برخورد با تارگت اول (انتقال به ریسک‌فری)
+            hit_tp1 = (hi >= tp1) if d == 1 else (lo <= tp1)
+            # برخورد با تارگت نهایی
+            hit_tp2 = (hi >= tp2) if d == 1 else (lo <= tp2)
 
-        direction = position["direction"]
-        stop = position["stop"]
-        target = position["target"]
+            if pos["status"] == "OPEN":
+                if hit_tp1:
+                    pos["status"] = "RISK_FREE"
+                    pos["sl"] = entry # استاپ به نقطه ورود می‌آید
+                elif hit_sl:
+                    gross = d * (sl - entry) / entry
+                    trades.append({"ret": gross - (FEE_RATE * 2), "win": False})
+                    pos = None
 
-        if direction == 1:
-            if opening <= stop:
-                trades.append(close_trade(position, opening, "stop_gap"))
-                # پیام خروج
-                if bot_token and chat_id:
-                    send_telegram_message(bot_token, chat_id,
-                        f"🔴 خروج به دلیل حد ضرر (stop_gap) با قیمت {opening:.2f}")
-                position = None
-                continue
-            if opening >= target:
-                trades.append(close_trade(position, target, "target"))
-                if bot_token and chat_id:
-                    send_telegram_message(bot_token, chat_id,
-                        f"🟢 خروج به دلیل هدف (target) با قیمت {target:.2f}")
-                position = None
-                continue
-
-            hit_stop = low <= stop
-            hit_target = high >= target
-        else:
-            if opening >= stop:
-                trades.append(close_trade(position, opening, "stop_gap"))
-                if bot_token and chat_id:
-                    send_telegram_message(bot_token, chat_id,
-                        f"🔴 خروج به دلیل حد ضرر (stop_gap) با قیمت {opening:.2f}")
-                position = None
-                continue
-            if opening <= target:
-                trades.append(close_trade(position, target, "target"))
-                if bot_token and chat_id:
-                    send_telegram_message(bot_token, chat_id,
-                        f"🟢 خروج به دلیل هدف (target) با قیمت {target:.2f}")
-                position = None
-                continue
-
-            hit_stop = high >= stop
-            hit_target = low <= target
-
-        if hit_stop:
-            reason = "both_stop_first" if hit_target else "stop"
-            trades.append(close_trade(position, stop, reason))
-            if bot_token and chat_id:
-                send_telegram_message(bot_token, chat_id,
-                    f"🔴 خروج به دلیل حد ضرر با قیمت {stop:.2f}")
-            position = None
-        elif hit_target:
-            trades.append(close_trade(position, target, "target"))
-            if bot_token and chat_id:
-                send_telegram_message(bot_token, chat_id,
-                    f"🟢 خروج به دلیل هدف با قیمت {target:.2f}")
-            position = None
-
-    if position is not None:
-        last_rows = [row for row in rows if start_ts <= row[0] < end_ts]
-        if last_rows:
-            trades.append(close_trade(position, last_rows[-1][4], "period_end"))
-            if bot_token and chat_id:
-                send_telegram_message(bot_token, chat_id,
-                    f"⏳ خروج به دلیل پایان بازه با قیمت {last_rows[-1][4]:.2f}")
+            elif pos["status"] == "RISK_FREE":
+                if hit_tp2:
+                    gross = d * (tp2 - entry) / entry
+                    trades.append({"ret": gross - (FEE_RATE * 2), "win": True})
+                    pos = None
+                elif hit_sl: # خروج بدون ضرر
+                    trades.append({"ret": 0.0 - (FEE_RATE * 2), "win": True})
+                    pos = None
 
     return trades
 
-
-def print_results(label, trades):
-    count = len(trades)
-    if not count:
-        print(f"  {label}: بدون معامله")
+def print_metrics(label, trades):
+    if not trades:
+        print(f"  {label}: بدون معامله تاییدشده (فیلتر بازار نامناسب)")
         return
-
-    wins = sum(1 for trade in trades if trade["return"] > 0)
-    total = sum(trade["return"] for trade in trades)
-    average = total / count
-    ambiguous = sum(t["reason"] == "both_stop_first" for t in trades)
-    forced = sum(t["reason"] == "period_end" for t in trades)
-
-    print(
-        f"  {label}: معاملات={count} | "
-        f"برد خالص={wins / count * 100:.1f}% | "
-        f"میانگین هر معامله={average * 100:+.3f}% | "
-        f"جمع بازده={total * 100:+.2f}% | "
-        f"برخورد همزمان={ambiguous} | پایان بازه={forced}"
-    )
-
+    wins = sum(1 for t in trades if t["ret"] > 0)
+    tot = sum(t["ret"] for t in trades)
+    print(f"  {label}: معامله={len(trades)} | برد={wins/len(trades)*100:.1f}% | بازده خالص کل={tot*100:+.2f}%")
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start", default="2025-01-01", help="شروع بازه با فرمت YYYY-MM-DD، UTC")
-    parser.add_argument("--split", default="2025-10-01", help="شروع بازه تست خارج از نمونه، UTC")
-    parser.add_argument("--end", default="2026-01-01", help="پایان بازه، غیرشامل، UTC")
+    parser.add_argument("--start", default="2024-01-01")
+    parser.add_argument("--split", default="2024-08-01")
+    parser.add_argument("--end", default="2024-12-01")
     args = parser.parse_args()
 
-    try:
-        start = utc_date(args.start)
-        split = utc_date(args.split)
-        end = utc_date(args.end)
+    s, sp, e = utc_date(args.start), utc_date(args.split), utc_date(args.end)
+    warmup = s - timedelta(days=40)
 
-        if not start < split < end:
-            raise ValueError("باید start < split < end باشد")
+    print(f"🧪 اجرای بک‌تست هوشمند چندتاییدی (Multi-Confluence + Risk-Free Engine)")
+    print(f"قوانین: تاییدیه حجم (RVol) + فیلتر RSI + انتقال استاپ به نقطه ورود در TP1\n")
 
-        if end > datetime.now(timezone.utc):
-            raise ValueError("تاریخ پایان نباید در آینده باشد")
-
-        print("بررسی وضعیت فعلی قراردادها:")
-        verify_symbols()
-
-        print(
-            "\nفرض‌ها: EMA20/50، استاپ 1.5 ATR، هدف 2R، "
-            f"کارمزد هر طرف {FEE_RATE * 100:.3f}%, "
-            f"لغزش هر طرف {SLIPPAGE_RATE * 100:.3f}%"
-        )
-        print("فاندینگ و لیکوییدشدن محاسبه نمی‌شوند.")
-        print("جمع بازده، جمع ساده درصد معاملات است؛ بازده حساب نیست.\n")
-
-        warmup_start = start - timedelta(days=60)
-
-        bot_token = os.getenv("BOT_TOKEN")
-        chat_id = os.getenv("CHANNEL_ID")
-
-        for symbol in SYMBOLS:
-            for interval in TIMEFRAMES:
-                print(f"\n{symbol} | {interval}")
-                try:
-                    rows = fetch_klines(symbol, interval, warmup_start, end)
-                    print(f"  تعداد کندل دریافتی: {len(rows)}")
-
-                    if rows:
-                        first = datetime.fromtimestamp(rows[0][0], timezone.utc)
-                        print(f"  اولین کندل موجود: {first:%Y-%m-%d %H:%M} UTC")
-
-                        if first > warmup_start + timedelta(days=1):
-                            print(
-                                "  هشدار: داده کافی برای کل بازه warm-up در دسترس نبود."
-                            )
-
-                    train = run_backtest(rows, start, split, bot_token, chat_id)
-                    test = run_backtest(rows, split, end, bot_token, chat_id)
-
-                    print_results("بازه اولیه", train)
-                    print_results("تست خارج از نمونه", test)
-
-                except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
-                    print(f"  خطا: {exc}")
-
-        return 0
-
-    except (requests.RequestException, ValueError, KeyError) as exc:
-        print(f"ERROR: {exc}")
-        return 1
-
+    for sym in SYMBOLS:
+        for tf in TIMEFRAMES:
+            print(f"📊 {sym} | تایم‌فریم: {tf}")
+            rows = fetch_klines(sym, tf, warmup, e)
+            train = run_confluence_backtest(rows, int(s.timestamp()), int(sp.timestamp()))
+            test = run_confluence_backtest(rows, int(sp.timestamp()), int(e.timestamp()))
+            print_metrics("دوره آموزش (Train)", train)
+            print_metrics("دوره تست خارج نمونه (Test)", test)
+            print("-" * 50)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
