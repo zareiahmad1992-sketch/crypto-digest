@@ -6,6 +6,7 @@ daily.py — نبض جامع بازار کریپتو
 داده‌های آنچین، شاخص سنتیمنت، فاندینگ و هیت‌مپ لیکوییدیشن CoinGlass.
 """
 import argparse
+import os
 import re
 import sys
 import time
@@ -22,19 +23,15 @@ H = {
 API_H = {"User-Agent": "CryptoDigestBot/3.0", "Accept": "application/json"}
 
 # ═══════════════ کانال‌های تلگرام معتبر (فارسی و انگلیسی) ═══════════════
-# (username, display_name, lang, tier) -> tier 1: معتبرترین / فوری
 TELEGRAM_SOURCES = [
-    # آنچین و نهنگ‌ها (Smart Money & Whales)
     ("lookonchain",             "Lookonchain (آنچین)",       "en", 1),
     ("cryptoquant_official",    "CryptoQuant",               "en", 1),
     ("whale_alert_io",          "Whale Alert",               "en", 2),
     ("glassnode_alerts",        "Glassnode Alerts",          "en", 2),
-    # اخبار فوری و بین‌المللی
     ("WuBlockchain",            "Wu Blockchain (فوری)",      "en", 1),
     ("TreeNewsFeed",            "Tree News (اخبار لحظه‌ای)", "en", 1),
     ("intothecryptoverse_news", "ITC News",                  "en", 2),
     ("defillama_tg",            "DefiLlama",                 "en", 2),
-    # رسانه‌های معتبر تحلیلی فارسی
     ("arzdigital",              "ارزدیجیتال",                "fa", 1),
     ("arzdigitalb",             "اخبار فوری کریپتو",         "fa", 1),
     ("mihanblockchain",         "میهن بلاک‌چین",             "fa", 1),
@@ -50,7 +47,7 @@ RSS_SOURCES = [
     ("MihanBlockchain",   "https://mihanblockchain.com/feed/",               2),
 ]
 
-# ═══════════════ فیلترها و الگوهای پردازش متن ═══════════════
+# ═══════════════ فیلترها و الگوها ═══════════════
 BTC_RE = re.compile(r"بیت\s*کوین|بیتکوین|bitcoin|\bBTC\b", re.I)
 ETH_RE = re.compile(r"اتریوم|ethereum|\bETH\b", re.I)
 ANALYSIS_RE = re.compile(
@@ -148,7 +145,6 @@ def pick_top_news(posts, hours=36, limit=5):
         except Exception:
             pass
         
-        # امتیازدهی به خبر
         sc = {1: 4, 2: 2, 3: 1}.get(p.get("tier", 3), 1)
         if ANALYSIS_RE.search(t): sc += 3
         if "ETF" in t or "Fed" in t or "نرخ بهره" in t: sc += 3
@@ -168,7 +164,7 @@ def pick_top_news(posts, hours=36, limit=5):
             break
     return selected
 
-# ═══════════════ دریافت آمار زنده بازار و سنتیمنت ═══════════════
+# ═══════════════ دریافت آمار زنده بازار ═══════════════
 def fetch_market_pulse():
     data = {}
     try:
@@ -198,7 +194,7 @@ def fetch_market_pulse():
 
     return data
 
-# ═══════════════ تاریخ شمسی و ارقام فارسی ═══════════════
+# ═══════════════ تاریخ شمسی ═══════════════
 def to_jalali(y, m, d):
     g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
     gy, gm, gd = y, m, d
@@ -259,7 +255,6 @@ def build_daily_report(m_data, news_list):
             rows.append(f"• <b>[{p['channel_name']}]</b> {clean_p}… <a href='{p['url']}'>[منبع]</a>")
         L.append("\n🗞 <b>مهم‌ترین رویدادها و اخبار آنچین (۲۴ ساعت گذشته):</b>\n" + "\n".join(rows))
 
-    # ابزارهای تحلیلی دستی
     L.append("\n🔎 <b>ابزارهای بررسی دستی و آنچین:</b>\n"
              "• <a href='https://www.coinglass.com/LiquidationHeatMap/BTC'>نقشه هیت‌مپ لیکوییدیشن بیت‌کوین (CoinGlass)</a>\n"
              "• <a href='https://www.coinglass.com/FundingRate'>نقشه حرارتی فاندینگ ریت فیوچرز (Funding Rate)</a>\n"
@@ -273,7 +268,7 @@ def build_daily_report(m_data, news_list):
     
     return "\n".join(L)
 
-# ═══════════════ ارسال به تلگرام با مدیریت قطعی پیام‌های طولانی ═══════════════
+# ═══════════════ ارسال به تلگرام ═══════════════
 def send_telegram(token, chat_id, text):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -291,13 +286,14 @@ def send_telegram(token, chat_id, text):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="نمایش خروجی در ترمینال بدون ارسال")
-    args = parser.parse_args()
+    parser.add_argument("--dry-run", action="store_true", help="نمایش خروجی در ترمینال")
+    parser.add_argument("--pages", type=int, default=1, help="تعداد صفحات تلگرام")
+    args, _ = parser.parse_known_args() # هر آرگومان اضافه دیگری را نادیده می‌گیرد تا خطا رخ ندهد
 
     print("📡 جمع‌آوری از برترین رسانه‌های جهانی، کانال‌های تلگرام و آنچین...")
     all_posts = []
     for h, n, l, t in TELEGRAM_SOURCES:
-        all_posts += fetch_telegram(h, n, l, t)
+        all_posts += fetch_telegram(h, n, l, t, pages=args.pages)
     for n, u, t in RSS_SOURCES:
         all_posts += fetch_rss(n, u, t)
 
@@ -324,5 +320,4 @@ def main():
     return 0 if success else 1
 
 if __name__ == "__main__":
-    import os
     raise SystemExit(main())
