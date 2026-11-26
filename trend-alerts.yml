@@ -1,0 +1,31 @@
+name: Trend Alerts
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+    inputs:
+      ping:
+        description: "فقط یک پیام تست اتصال بفرست"
+        type: boolean
+        default: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run trend alerts
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        run: |
+          if [ "${{ github.event.inputs.ping }}" = "true" ]; then
+            python trend_alerts.py --ping
+          else
+            python trend_alerts.py
+          fi

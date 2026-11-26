@@ -1,0 +1,35 @@
+
+name: history-collect
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "12 3 * * *"
+permissions:
+  contents: write
+
+concurrency:
+  group: history-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install requests
+        run: pip install requests
+      - name: Append closed candles to history archive
+        run: python history_store.py
+      - name: Commit history
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- data/history/btc_*.csv
+          if ! git diff --cached --quiet; then
+            git commit -m 'Append BTC candle history'
+            git push
+          fi

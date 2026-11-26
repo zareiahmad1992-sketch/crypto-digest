@@ -1,0 +1,25 @@
+{
+  "note": "فهرست پیشنهادی کاربر؛ خواندن صفحه عمومی به‌معنای تأیید هویت و اعتبار نیست. این فایل هنوز به ربات وصل نشده است. مطالب تبلیغاتی و سیگنال VIP نباید بازنشر شوند.",
+  "sources": [
+    {"name":"آکادمی ترید ShayanMarkets", "handle":"ShayanMarkets", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"تیم تحلیلی کاراکو", "handle":null, "kind":"private_channel", "preview_checked":false, "identity_independently_verified":false, "enabled":false},
+    {"name":"کانال سیگنال ارز دیجیتال", "handle":"hamyar_crypto", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"فرصت طلایی با محمد حسن‌زاده", "handle":"forsattalaeii", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"کریپتو طلا دلار سیگنال", "handle":"chart_tora", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"Solevrage", "handle":"solevrage11", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"Tignal", "handle":"tignal", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"Eco Parnian", "handle":"EcoParnian", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"Mahshid Dadashzadeh", "handle":"mahshidinvest", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"دکتر آرش امینی", "handle":"drarashamini", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"فردین سلطانی", "handle":null, "kind":"private_channel", "preview_checked":false, "identity_independently_verified":false, "enabled":false},
+    {"name":"وبینار آینده دلار طلا و بیت‌کوین", "handle":"vebinar1404", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"ایرانیان فاینانس", "handle":"iranian_finance", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"ندا عباسی", "handle":"nedaabbasi2040", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"کاسپین فیوچرز", "handle":"Caspian_Futures", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"الهه شهبازی", "handle":"marketwatch1", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"مهدی خدایی", "handle":"khodayie", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"Mr.shahrokhii", "handle":"shahrokhi_officiall", "kind":"group", "preview_checked":false, "identity_independently_verified":false, "enabled":false},
+    {"name":"آکادمی ارتش RTM", "handle":"rtmyashtrader", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false},
+    {"name":"سرور قاراخانی", "handle":"sororgharakhani", "kind":"public_channel", "preview_checked":true, "identity_independently_verified":false, "enabled":false}
+  ]
+}

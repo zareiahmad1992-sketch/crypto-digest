@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "symbols": {
+    "ADA": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "BNB": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "BTC": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "DOGE": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "ETH": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "LINK": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "SOL": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "TON": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    },
+    "XRP": {
+      "trends": {
+        "۳۰ دقیقه": "down",
+        "۱ ساعت": "down",
+        "۴ ساعت": "down"
+      },
+      "alignment": "down"
+    }
+  }
+}

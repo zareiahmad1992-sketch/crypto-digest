@@ -1,0 +1,32 @@
+[
+  {
+    "ts": 1795549827.6885014,
+    "mode": "alerts",
+    "ok": 9,
+    "failed": [],
+    "sent": 0,
+    "kinds": {},
+    "errors": []
+  },
+  {
+    "ts": 1795577488.9005797,
+    "mode": "alerts",
+    "ok": 9,
+    "failed": [],
+    "sent": 2,
+    "kinds": {
+      "change": 1,
+      "align": 1
+    },
+    "errors": []
+  },
+  {
+    "ts": 1795600319.6383178,
+    "mode": "alerts",
+    "ok": 9,
+    "failed": [],
+    "sent": 0,
+    "kinds": {},
+    "errors": []
+  }
+]
