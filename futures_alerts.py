@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
 """
-Futures Alerts Engine with Two-Tier Notification System & Auto-Trade Lifecycle Tracking.
-Tier 1: Confirmed Multi-Confluence Signal (Score >= 70) -> Entry + SL + TP1 (Risk-Free) + TP2
-Tier 2: Market Radar / Setup Brewing (Score 60-69) -> Watch alert, prevents signal silence in chop
+Futures Alerts Engine with Dynamic Top 40 Market Cap / Volume Scanner.
+Two-Tier Alert System:
+- Tier 1: Confirmed Trade Setup (Score >= 70) -> Entry, SL, TP1 (50% close + Risk-Free), TP2
+- Tier 2: Market Radar / Setup Brewing (Score 60-69) -> Watchlist alert
 """
 
 import os
 import sys
 import json
 import time
-import math
-import argparse
 import requests
+import argparse
 from datetime import datetime
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("CHANNEL_ID", "").strip()
 DATA_FILE = "data/active_positions.json"
 
-SYMBOLS = [
+FALLBACK_TOP_40 = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
-    "ADAUSDT", "AVAXUSDT", "NEARUSDT", "TONUSDT", "SUIUSDT",
-    "LINKUSDT", "APTUSDT", "DOGEUSDT"
+    "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "SUIUSDT", "LINKUSDT",
+    "NEARUSDT", "TONUSDT", "APTUSDT", "SHIBUSDT", "PEPEUSDT",
+    "WIFUSDT", "DOTUSDT", "LTCUSDT", "BCHUSDT", "UNIUSDT",
+    "AAVEUSDT", "INJUSDT", "FETUSDT", "RENDERUSDT", "TIAUSDT",
+    "SEIUSDT", "ARBUSDT", "OPUSDT", "POLUSDT", "FTMUSDT",
+    "ICPUSDT", "XLMUSDT", "TRXUSDT", "ETCUSDT", "STXUSDT",
+    "FILUSDT", "ATOMUSDT", "ONDOUSDT", "GALAUSDT", "PENDLEUSDT"
 ]
 
 def send_telegram(text, parse_mode="HTML"):
@@ -43,6 +48,27 @@ def send_telegram(text, parse_mode="HTML"):
     except Exception as e:
         print(f"Error sending Telegram message: {e}")
         return False
+
+def get_top_40_symbols():
+    """Dynamically fetches top 40 USDT futures pairs sorted by 24h volume."""
+    url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            tickers = r.json()
+            valid = []
+            for t in tickers:
+                sym = t.get("symbol", "")
+                if sym.endswith("USDT") and not sym.startswith(("USDC", "FDUSD", "TUSD", "BUSD")):
+                    vol = float(t.get("quoteVolume", 0))
+                    valid.append((sym, vol))
+            valid.sort(key=lambda x: x[1], reverse=True)
+            top_symbols = [s[0] for s in valid[:40]]
+            if len(top_symbols) >= 30:
+                return top_symbols
+    except Exception as e:
+        print(f"Dynamic symbol fetch warning: {e}, falling back to static 40")
+    return FALLBACK_TOP_40
 
 def get_klines(symbol, interval="1h", limit=100):
     url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -72,7 +98,6 @@ def calc_indicators(klines):
     lows = [float(k[3]) for k in klines]
     volumes = [float(k[5]) for k in klines]
     
-    # EMA
     def ema(series, period):
         alpha = 2 / (period + 1)
         res = [series[0]]
@@ -208,7 +233,6 @@ def save_positions(positions):
         json.dump({"positions": positions}, f, ensure_ascii=False, indent=2)
 
 def track_open_positions():
-    """Tracks active positions, triggers TP1 (Risk-Free), TP2, or SL."""
     positions = load_positions()
     if not positions:
         return
@@ -228,7 +252,7 @@ def track_open_positions():
         tp2 = pos["tp2"]
         status = pos.get("status", "OPEN")
         
-        # Check Long
+        # Long tracking
         if direction == "LONG":
             if cur_price >= tp2:
                 msg = (
@@ -241,10 +265,10 @@ def track_open_positions():
                     f"#مدیریت_معامله #{symbol}"
                 )
                 send_telegram(msg)
-                continue  # removed
+                continue
             elif cur_price >= tp1 and status == "OPEN":
                 pos["status"] = "TP1_HIT"
-                pos["sl"] = entry  # Risk Free
+                pos["sl"] = entry
                 msg = (
                     f"🎯 🛡 <b>[تارگت اول تاچ شد • سیو سود و ریسک‌فری]</b>\n\n"
                     f"🔹 <b>نماد:</b> #{symbol}\n"
@@ -263,15 +287,15 @@ def track_open_positions():
                     f"🛑 <b>[خروج از معامله • {loss_type}]</b>\n\n"
                     f"🔹 <b>نماد:</b> #{symbol}\n"
                     f"📉 <b>قیمت خروج:</b> <code>{cur_price:,.4f}</code>\n"
-                    f"🛡 <b>پایان معامله طبق استراتژی و اصل حفظ سرمایه.</b>\n"
+                    f"🛡 <b>پایان معامله طبق اصل حفظ سرمایه.</b>\n"
                     f"#مدیریت_معامله #{symbol}"
                 )
                 send_telegram(msg)
-                continue  # removed
+                continue
             else:
                 updated_positions.append(pos)
                 
-        # Check Short
+        # Short tracking
         elif direction == "SHORT":
             if cur_price <= tp2:
                 msg = (
@@ -287,7 +311,7 @@ def track_open_positions():
                 continue
             elif cur_price <= tp1 and status == "OPEN":
                 pos["status"] = "TP1_HIT"
-                pos["sl"] = entry  # Risk Free
+                pos["sl"] = entry
                 msg = (
                     f"🎯 🛡 <b>[تارگت اول تاچ شد • سیو سود و ریسک‌فری]</b>\n\n"
                     f"🔹 <b>نماد:</b> #{symbol}\n"
@@ -321,13 +345,16 @@ def main():
     parser.add_argument("--preview", action="store_true", help="Print alerts without sending")
     args, _ = parser.parse_known_args()
     
-    print("🔍 بررسی وضعیت پوزیشن‌های باز و فعال...")
+    print("🔍 بررسی وضعیت پوزیشن‌های باز و ریسک‌فری...")
     track_open_positions()
     
-    active_symbols = [p["symbol"] for p in load_positions()]
-    print(f"🚀 در حال اسکن {len(SYMBOLS)} جفت‌ارز نقدشونده...")
+    symbols = get_top_40_symbols()
+    print(f"🚀 در حال اسکن دقیق {len(symbols)} ارز برتر و پرحجم بازار فیوچرز...")
     
-    for symbol in SYMBOLS:
+    active_symbols = [p["symbol"] for p in load_positions()]
+    
+    for symbol in symbols:
+        time.sleep(0.15) # Polite delay
         res = analyze_symbol(symbol)
         if not res:
             continue
@@ -340,7 +367,7 @@ def main():
         # 1. Tier 1: Confirmed Trade Setup (Score >= 70)
         if score >= 70:
             if symbol in active_symbols:
-                continue # Already have an active position
+                continue
             risk = 1.5 * atr
             if direction == "LONG":
                 sl = price - risk
@@ -369,7 +396,6 @@ def main():
             )
             send_telegram(msg)
             
-            # Save to active positions
             positions = load_positions()
             positions.append({
                 "symbol": symbol,
