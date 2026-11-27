@@ -2,7 +2,7 @@ name: Futures Alerts
 "on":
   schedule:
     # ۲ دقیقه بعد از ربات اسپات، پس از بسته‌شدن کندل ۳۰ دقیقه‌ای OKX
-    - cron: '9,39 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
     inputs:
       all_alignments:

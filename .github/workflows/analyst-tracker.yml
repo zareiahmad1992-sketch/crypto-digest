@@ -3,7 +3,7 @@ name: Analysts Mirror & Trade Tracker
 on:
   schedule:
     # اجرا هر ۱۰ دقیقه یک‌بار (حداکثر سرعت ممکن در گیت‌هاب)
-    - cron: '*/10 * * * *'
+    - cron: '3,13,23,33,43,53 * * * *'
   workflow_dispatch:
 
 permissions:
