@@ -2,28 +2,32 @@ name: Analysts Mirror & Trade Tracker
 
 on:
   schedule:
-    # اجرا هر ۱۰ دقیقه یک‌بار (حداکثر سرعت ممکن در گیت‌هاب)
     - cron: '3,13,23,33,43,53 * * * *'
   workflow_dispatch:
 
-concurrency:\n  group: crypto-state\n  cancel-in-progress: false\n\npermissions:
+permissions:
   contents: write
+
+concurrency:
+  group: crypto-state
+  cancel-in-progress: false
 
 jobs:
   run-sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4
 
       - name: Run Analyst Mirror
         env:
@@ -31,16 +35,11 @@ jobs:
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         run: python analyst_forwarder.py
 
-      - name: Run Trade Tracker
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
-        run: python tracker.py
-
       - name: Save State to Repository
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data/
-          git commit -m "Auto-update state files [skip ci]" || exit 0
+          git commit -m "Auto-update analyst state [skip ci]" || exit 0
+          git pull --rebase origin main
           git push

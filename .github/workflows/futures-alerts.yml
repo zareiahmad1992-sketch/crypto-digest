@@ -29,26 +29,7 @@ jobs:
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Test Exchange APIs from GitHub Runner
-        run: |
-          for name_url in \
-            "BinanceFutures|https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=2" \
-            "BinanceVision|https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=2" \
-            "OKX|https://www.okx.com/api/v5/market/candles?instId=BTC-USDT-SWAP&bar=1H&limit=2" \
-            "GateIO|https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract=BTC_USDT&interval=1h&limit=2" \
-            "KuCoin|https://api-futures.kucoin.com/api/v1/kline/query?symbol=XBTUSDTM&granularity=60" \
-            "Hyperliquid|https://api.hyperliquid.xyz/info"; do
-            name="${name_url%%|*}"
-            url="${name_url#*|}"
-            if [ "$name" = "Hyperliquid" ]; then
-              code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" -H "Content-Type: application/json" -d '{"type":"meta"}')
-            else
-              code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-            fi
-            echo "$name -> HTTP $code"
-          done
-
-      - name: Scan Top 40 Crypto & Track Trade Results
+      - name: Scan Top 40 Crypto (XT Exchange) & Track Trade Results
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
