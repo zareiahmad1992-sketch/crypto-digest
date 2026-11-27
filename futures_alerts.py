@@ -326,7 +326,7 @@ def main():
     args, _ = parser.parse_known_args()
     
     print("🔍 بررسی وضعیت پوزیشن‌های باز و ریسک‌فری...")
-    track_open_positions()
+    pass
     
     symbols = TOP_40_CRYPTO_SYMBOLS
     print(f"🚀 در حال اسکن دقیق {len(symbols)} ارز برتر کریپتو...")
