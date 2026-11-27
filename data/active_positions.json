@@ -1,1 +1,76 @@
-{"positions": []}
+{
+  "positions": [
+    {
+      "symbol": "FETUSDT",
+      "direction": "LONG",
+      "entry": 0.1269,
+      "sl": 0.12317142857142858,
+      "tp1": 0.13249285714285713,
+      "tp2": 0.13622142857142858,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:45",
+      "opened_ts_ms": 1795817445168
+    },
+    {
+      "symbol": "FTMUSDT",
+      "direction": "LONG",
+      "entry": 0.6994,
+      "sl": 0.6843142857142858,
+      "tp1": 0.7220285714285715,
+      "tp2": 0.7371142857142857,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:54",
+      "opened_ts_ms": 1795817454086
+    },
+    {
+      "symbol": "ICPUSDT",
+      "direction": "SHORT",
+      "entry": 1.98,
+      "sl": 2.016642857142857,
+      "tp1": 1.9250357142857142,
+      "tp2": 1.888392857142857,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:56",
+      "opened_ts_ms": 1795817456542
+    },
+    {
+      "symbol": "XLMUSDT",
+      "direction": "SHORT",
+      "entry": 0.1261,
+      "sl": 0.12792142857142857,
+      "tp1": 0.12336785714285713,
+      "tp2": 0.12154642857142854,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:59",
+      "opened_ts_ms": 1795817459001
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "direction": "SHORT",
+      "entry": 1.228,
+      "sl": 1.2498571428571428,
+      "tp1": 1.1952142857142858,
+      "tp2": 1.1733571428571428,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:11:04",
+      "opened_ts_ms": 1795817464741
+    },
+    {
+      "symbol": "GALAUSDT",
+      "direction": "LONG",
+      "entry": 0.00142,
+      "sl": 0.00139,
+      "tp1": 0.0014650000000000002,
+      "tp2": 0.001495,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:11:08",
+      "opened_ts_ms": 1795817468221
+    }
+  ]
+}
