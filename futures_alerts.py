@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Futures Alerts Engine with Dynamic Top 40 Market Cap / Volume Scanner.
+Futures Alerts Engine with Curated Top 40 Pure Crypto Assets.
 Two-Tier Alert System:
 - Tier 1: Confirmed Trade Setup (Score >= 70) -> Entry, SL, TP1 (50% close + Risk-Free), TP2
 - Tier 2: Market Radar / Setup Brewing (Score 60-69) -> Watchlist alert
@@ -12,16 +12,17 @@ import json
 import time
 import requests
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("CHANNEL_ID", "").strip()
 DATA_FILE = "data/active_positions.json"
 
-FALLBACK_TOP_40 = [
+# ۴۰ رمزارز برتر، معتبر و پرحجم بازار فیوچرز کریپتو
+TOP_40_CRYPTO_SYMBOLS = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
     "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "SUIUSDT", "LINKUSDT",
-    "NEARUSDT", "TONUSDT", "APTUSDT", "SHIBUSDT", "PEPEUSDT",
+    "NEARUSDT", "TONUSDT", "APTUSDT", "1000SHIBUSDT", "1000PEPEUSDT",
     "WIFUSDT", "DOTUSDT", "LTCUSDT", "BCHUSDT", "UNIUSDT",
     "AAVEUSDT", "INJUSDT", "FETUSDT", "RENDERUSDT", "TIAUSDT",
     "SEIUSDT", "ARBUSDT", "OPUSDT", "POLUSDT", "FTMUSDT",
@@ -48,27 +49,6 @@ def send_telegram(text, parse_mode="HTML"):
     except Exception as e:
         print(f"Error sending Telegram message: {e}")
         return False
-
-def get_top_40_symbols():
-    """Dynamically fetches top 40 USDT futures pairs sorted by 24h volume."""
-    url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
-    try:
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            tickers = r.json()
-            valid = []
-            for t in tickers:
-                sym = t.get("symbol", "")
-                if sym.endswith("USDT") and not sym.startswith(("USDC", "FDUSD", "TUSD", "BUSD")):
-                    vol = float(t.get("quoteVolume", 0))
-                    valid.append((sym, vol))
-            valid.sort(key=lambda x: x[1], reverse=True)
-            top_symbols = [s[0] for s in valid[:40]]
-            if len(top_symbols) >= 30:
-                return top_symbols
-    except Exception as e:
-        print(f"Dynamic symbol fetch warning: {e}, falling back to static 40")
-    return FALLBACK_TOP_40
 
 def get_klines(symbol, interval="1h", limit=100):
     url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -348,13 +328,13 @@ def main():
     print("🔍 بررسی وضعیت پوزیشن‌های باز و ریسک‌فری...")
     track_open_positions()
     
-    symbols = get_top_40_symbols()
-    print(f"🚀 در حال اسکن دقیق {len(symbols)} ارز برتر و پرحجم بازار فیوچرز...")
+    symbols = TOP_40_CRYPTO_SYMBOLS
+    print(f"🚀 در حال اسکن دقیق {len(symbols)} ارز برتر کریپتو...")
     
     active_symbols = [p["symbol"] for p in load_positions()]
     
     for symbol in symbols:
-        time.sleep(0.15) # Polite delay
+        time.sleep(0.1)
         res = analyze_symbol(symbol)
         if not res:
             continue
@@ -406,7 +386,7 @@ def main():
                 "tp2": tp2,
                 "status": "OPEN",
                 "leverage": 2,
-                "opened_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                "opened_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             })
             save_positions(positions)
             active_symbols.append(symbol)
