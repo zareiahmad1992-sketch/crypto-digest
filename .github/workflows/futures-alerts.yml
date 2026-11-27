@@ -1,56 +1,43 @@
-name: Futures Alerts
-"on":
+name: Futures Alerts & Position Tracker
+
+on:
   schedule:
-    # ۲ دقیقه بعد از ربات اسپات، پس از بسته‌شدن کندل ۳۰ دقیقه‌ای OKX
     - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
-    inputs:
-      all_alignments:
-        description: "ارسال همه هم‌جهتی‌ها بدون فیلتر ۴ از ۴ (فقط برای این نوبت)"
-        type: boolean
-        default: false
+
 permissions:
   contents: write
-concurrency:
-  group: bit-mahdi-trend-alerts
-  cancel-in-progress: false
+
 jobs:
-  futures_monitor:
+  scan-and-track:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check requests
-      - name: Check OKX closed candles and notify
+
+      - name: Install Dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: Run Futures Alerts & Position Manager
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         run: |
-          if [ "${{ github.event.inputs.all_alignments }}" = "true" ]; then
-            python futures_alerts.py --preset 30m --all-alignments --symbols BTC,ETH,SOL,BNB,XRP,LINK,ADA,DOGE
-          else
-            python futures_alerts.py --preset 30m --symbols BTC,ETH,SOL,BNB,XRP,LINK,ADA,DOGE
-          fi
-      - name: Save futures state
+          python futures_alerts.py
+
+      - name: Save State & Active Positions
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if [ -f data/futures_state.json ]; then
-            git add -f data/futures_state.json
-          fi
-          if ! git diff --cached --quiet; then
-            git commit -m 'Update futures monitor state'
-            pushed=false
-            for i in 1 2 3; do
-              if git pull --rebase --autostash origin "${GITHUB_REF_NAME:-main}" && git push; then
-                pushed=true
-                break
-              fi
-              sleep 3
-            done
-            [ "$pushed" = "true" ]
-          fi
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin main --rebase || true
+          git add data/
+          git commit -m "Update active trade positions and state [skip ci]" || echo "No state changes to commit"
+          git push origin main || echo "Push skipped"

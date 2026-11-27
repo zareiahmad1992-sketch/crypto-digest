@@ -1,118 +1,409 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-futures_alerts.py — اسکنر هوشمند بازار فیوچرز و اسپات
+Futures Alerts Engine with Two-Tier Notification System & Auto-Trade Lifecycle Tracking.
+Tier 1: Confirmed Multi-Confluence Signal (Score >= 70) -> Entry + SL + TP1 (Risk-Free) + TP2
+Tier 2: Market Radar / Setup Brewing (Score 60-69) -> Watch alert, prevents signal silence in chop
 """
+
 import os
 import sys
 import json
 import time
-from pathlib import Path
-import trend_alerts as t
+import math
+import argparse
+import requests
+from datetime import datetime
 
-STATE_FILE = Path("data/scanner_state.json")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+CHANNEL_ID = os.environ.get("CHANNEL_ID", "").strip()
+DATA_FILE = "data/active_positions.json"
 
-def load_state():
-    if not STATE_FILE.exists():
-        return {}
+SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+    "ADAUSDT", "AVAXUSDT", "NEARUSDT", "TONUSDT", "SUIUSDT",
+    "LINKUSDT", "APTUSDT", "DOGEUSDT"
+]
+
+def send_telegram(text, parse_mode="HTML"):
+    if not BOT_TOKEN or not CHANNEL_ID:
+        print("[Preview Mode - Telegram Output]:")
+        print(text)
+        print("-" * 50)
+        return True
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHANNEL_ID,
+        "text": text,
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": True
+    }
     try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        resp = requests.post(url, json=payload, timeout=15)
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"Error sending Telegram message: {e}")
+        return False
+
+def get_klines(symbol, interval="1h", limit=100):
+    url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return r.json()
     except Exception:
-        return {}
+        pass
+    return []
 
-def save_state(state):
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temp_file = STATE_FILE.with_suffix(".json.tmp")
-    temp_file.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    temp_file.replace(STATE_FILE)
+def get_funding_rate(symbol):
+    url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return float(r.json().get("lastFundingRate", 0.0))
+    except Exception:
+        pass
+    return 0.0
 
-def format_telegram_alert(d: dict) -> str:
-    is_long = "BUY" in d["signal"]
-    dir_title = "🟢 موقعیت لانگ / خرید (LONG)" if is_long else "🔴 موقعیت شورت / فروش (SHORT)"
-    trade_type = "اسپات و فیوچرز" if is_long else "فقط فیوچرز (خروج از اسپات)"
+def calc_indicators(klines):
+    if len(klines) < 60:
+        return None
+    closes = [float(k[4]) for k in klines]
+    highs = [float(k[2]) for k in klines]
+    lows = [float(k[3]) for k in klines]
+    volumes = [float(k[5]) for k in klines]
     
-    risk_pct = abs(d["price"] - d["stop_loss"]) / d["price"] * 100
-    r1_pct = abs(d["tp1"] - d["price"]) / d["price"] * 100
-    r2_pct = abs(d["tp2"] - d["price"]) / d["price"] * 100
+    # EMA
+    def ema(series, period):
+        alpha = 2 / (period + 1)
+        res = [series[0]]
+        for val in series[1:]:
+            res.append(val * alpha + res[-1] * (1 - alpha))
+        return res
+    
+    ema20 = ema(closes, 20)[-1]
+    ema50 = ema(closes, 50)[-1]
+    ema200 = ema(closes, min(len(closes), 200))[-1] if len(closes) >= 50 else ema50
+    
+    # RSI 14
+    gains, losses = [], []
+    for i in range(1, 15):
+        diff = closes[-i] - closes[-i-1]
+        gains.append(max(0, diff))
+        losses.append(max(0, -diff))
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_loss = sum(losses) / 14 if losses else 0.0001
+    rs = avg_gain / (avg_loss if avg_loss != 0 else 0.0001)
+    rsi14 = 100 - (100 / (1 + rs))
+    
+    # ATR 14
+    tr_list = []
+    for i in range(1, 15):
+        h, l, prev_c = highs[-i], lows[-i], closes[-i-1]
+        tr_list.append(max(h - l, abs(h - prev_c), abs(l - prev_c)))
+    atr14 = sum(tr_list) / 14
+    
+    # MACD (12, 26, 9)
+    ema12_arr = ema(closes, 12)
+    ema26_arr = ema(closes, 26)
+    macd_line = [a - b for a, b in zip(ema12_arr, ema26_arr)]
+    signal_line = ema(macd_line, 9)
+    hist = macd_line[-1] - signal_line[-1]
+    prev_hist = macd_line[-2] - signal_line[-2]
+    
+    # Ichimoku Base Line (Kijun 26) & Conversion (Tenkan 9)
+    tenkan = (max(highs[-9:]) + min(lows[-9:])) / 2
+    kijun = (max(highs[-26:]) + min(lows[-26:])) / 2
+    
+    # RVol (Volume vs 20-candle average)
+    avg_vol = sum(volumes[-21:-1]) / 20 if len(volumes) >= 21 else volumes[-1]
+    rvol = volumes[-1] / avg_vol if avg_vol > 0 else 1.0
+    
+    return {
+        "price": closes[-1],
+        "ema20": ema20,
+        "ema50": ema50,
+        "ema200": ema200,
+        "rsi": rsi14,
+        "atr": atr14,
+        "macd_hist": hist,
+        "macd_hist_rising": hist > prev_hist,
+        "tenkan": tenkan,
+        "kijun": kijun,
+        "rvol": rvol
+    }
 
-    reasons_text = "\n".join([f"  • {r}" for r in d["reasons"]])
+def analyze_symbol(symbol):
+    klines_1h = get_klines(symbol, "1h", 100)
+    if not klines_1h:
+        return None
+    ind = calc_indicators(klines_1h)
+    if not ind:
+        return None
+    funding = get_funding_rate(symbol)
+    price = ind["price"]
+    
+    # Bullish Confluences
+    long_score = 0
+    long_reasons = []
+    if price > ind["ema200"]:
+        long_score += 20; long_reasons.append("قیمت بالای EMA 200 (روند کلان صعودی)")
+    if ind["ema20"] > ind["ema50"]:
+        long_score += 15; long_reasons.append("کراس صعودی EMA 20/50")
+    if ind["tenkan"] > ind["kijun"] and price > ind["kijun"]:
+        long_score += 20; long_reasons.append("حمایت تنکان/کیجون ایچیموکو")
+    if ind["macd_hist"] > 0 and ind["macd_hist_rising"]:
+        long_score += 15; long_reasons.append("مومنتوم مثبت و افزایشی MACD")
+    if 45 <= ind["rsi"] <= 65:
+        long_score += 15; long_reasons.append(f"مومنتوم RSI متعادل و مستعد رشد ({ind['rsi']:.1f})")
+    if ind["rvol"] >= 1.2:
+        long_score += 15; long_reasons.append(f"حجم معاملاتی تاییدکننده (RVol: {ind['rvol']:.2f}x)")
+    if funding <= 0.01:
+        long_score += 10; long_reasons.append("عدم اشباع فاندینگ‌ریت لانگ")
+        
+    # Bearish Confluences
+    short_score = 0
+    short_reasons = []
+    if price < ind["ema200"]:
+        short_score += 20; short_reasons.append("قیمت زیر EMA 200 (روند کلان نزولی)")
+    if ind["ema20"] < ind["ema50"]:
+        short_score += 15; short_reasons.append("کراس نزولی EMA 20/50")
+    if ind["tenkan"] < ind["kijun"] and price < ind["kijun"]:
+        short_score += 20; short_reasons.append("فشار نزولی تنکان/کیجون ایچیموکو")
+    if ind["macd_hist"] < 0 and not ind["macd_hist_rising"]:
+        short_score += 15; short_reasons.append("مومنتوم منفی و کاهشی MACD")
+    if 35 <= ind["rsi"] <= 55:
+        short_score += 15; short_reasons.append(f"مومنتوم RSI مستعد ریزش ({ind['rsi']:.1f})")
+    if ind["rvol"] >= 1.2:
+        short_score += 15; short_reasons.append(f"حجم معاملاتی تاییدکننده (RVol: {ind['rvol']:.2f}x)")
+    if funding >= -0.01:
+        short_score += 10; short_reasons.append("عدم اشباع فاندینگ‌ریت شورت")
+        
+    direction = "LONG" if long_score >= short_score else "SHORT"
+    final_score = max(long_score, short_score)
+    reasons = long_reasons if direction == "LONG" else short_reasons
+    
+    return {
+        "symbol": symbol,
+        "direction": direction,
+        "score": final_score,
+        "price": price,
+        "atr": ind["atr"],
+        "reasons": reasons,
+        "funding": funding,
+        "rvol": ind["rvol"]
+    }
 
-    msg = f"""💎 <b>سیگنال با تاییدیه چندگانه ({d['symbol']})</b>
-━━━━━━━━━━━━━━━━━━━━
-🎯 <b>جهت:</b> {dir_title}
-🏷 <b>بازار هدف:</b> {trade_type}
-📊 <b>امتیاز سیستم:</b> <code>{d['score']}/100</code> | RSI: <code>{d['rsi']}</code> | حجم: <code>{d['rvol']}x</code>
+def load_positions():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f).get("positions", [])
+        except Exception:
+            pass
+    return []
 
-💵 <b>قیمت ورود:</b> <code>${d['price']:,.4f}</code>
-🛑 <b>حد ضرر قطعی (SL):</b> <code>${d['stop_loss']:,.4f}</code> (<code>{risk_pct:.2f}%-</code>)
-🎯 <b>تارگت اول (TP1):</b> <code>${d['tp1']:,.4f}</code> (<code>{r1_pct:.2f}%+</code>)
-🚀 <b>تارگت دوم (TP2):</b> <code>${d['tp2']:,.4f}</code> (<code>{r2_pct:.2f}%+</code>)
+def save_positions(positions):
+    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({"positions": positions}, f, ensure_ascii=False, indent=2)
 
-🔎 <b>دلایل ورود و تایید تکنیکال:</b>
-{reasons_text}
-• فاندینگ ریت: <code>{d['funding']:+.4f}%</code>
+def track_open_positions():
+    """Tracks active positions, triggers TP1 (Risk-Free), TP2, or SL."""
+    positions = load_positions()
+    if not positions:
+        return
+    updated_positions = []
+    
+    for pos in positions:
+        symbol = pos["symbol"]
+        klines = get_klines(symbol, "1m", 1)
+        if not klines:
+            updated_positions.append(pos)
+            continue
+        cur_price = float(klines[-1][4])
+        direction = pos["direction"]
+        entry = pos["entry"]
+        sl = pos["sl"]
+        tp1 = pos["tp1"]
+        tp2 = pos["tp2"]
+        status = pos.get("status", "OPEN")
+        
+        # Check Long
+        if direction == "LONG":
+            if cur_price >= tp2:
+                msg = (
+                    f"🚀 🔥 <b>[تارگت نهایی تاچ شد • خروج کامل]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"🟢 <b>جهت:</b> LONG 🟢\n"
+                    f"🎯 <b>قیمت تارگت ۲:</b> <code>{tp2:,.4f}</code>\n"
+                    f"💰 <b>سود کل پوزیشن:</b> <code>+{((tp2-entry)/entry)*100*pos.get('leverage',2):.1f}%</code>\n\n"
+                    f"✅ این معامله با موفقیت کامل بسته شد.\n"
+                    f"#مدیریت_معامله #{symbol}"
+                )
+                send_telegram(msg)
+                continue  # removed
+            elif cur_price >= tp1 and status == "OPEN":
+                pos["status"] = "TP1_HIT"
+                pos["sl"] = entry  # Risk Free
+                msg = (
+                    f"🎯 🛡 <b>[تارگت اول تاچ شد • سیو سود و ریسک‌فری]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"🟢 <b>جهت:</b> LONG\n"
+                    f"🎯 <b>تارگت ۱:</b> <code>{tp1:,.4f}</code> (تاچ شد ✅)\n"
+                    f"🛡 <b>اقدام الزامی:</b> ۵۰٪ معامله را ببندید و حد ضرر را دقیقاً روی نقطه ورود (<code>{entry:,.4f}</code>) بگذارید.\n\n"
+                    f"🚀 <b>تارگت نهایی:</b> <code>{tp2:,.4f}</code>\n"
+                    f"#مدیریت_معامله #ریسک_فری #{symbol}"
+                )
+                send_telegram(msg)
+                updated_positions.append(pos)
+                continue
+            elif cur_price <= sl:
+                loss_type = "ریسک‌فری (بدون ضرر)" if status == "TP1_HIT" else "حد ضرر فعال شد"
+                msg = (
+                    f"🛑 <b>[خروج از معامله • {loss_type}]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"📉 <b>قیمت خروج:</b> <code>{cur_price:,.4f}</code>\n"
+                    f"🛡 <b>پایان معامله طبق استراتژی و اصل حفظ سرمایه.</b>\n"
+                    f"#مدیریت_معامله #{symbol}"
+                )
+                send_telegram(msg)
+                continue  # removed
+            else:
+                updated_positions.append(pos)
+                
+        # Check Short
+        elif direction == "SHORT":
+            if cur_price <= tp2:
+                msg = (
+                    f"🚀 🔥 <b>[تارگت نهایی تاچ شد • خروج کامل]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"🔴 <b>جهت:</b> SHORT 🔴\n"
+                    f"🎯 <b>قیمت تارگت ۲:</b> <code>{tp2:,.4f}</code>\n"
+                    f"💰 <b>سود کل پوزیشن:</b> <code>+{((entry-tp2)/entry)*100*pos.get('leverage',2):.1f}%</code>\n\n"
+                    f"✅ این معامله با موفقیت کامل بسته شد.\n"
+                    f"#مدیریت_معامله #{symbol}"
+                )
+                send_telegram(msg)
+                continue
+            elif cur_price <= tp1 and status == "OPEN":
+                pos["status"] = "TP1_HIT"
+                pos["sl"] = entry  # Risk Free
+                msg = (
+                    f"🎯 🛡 <b>[تارگت اول تاچ شد • سیو سود و ریسک‌فری]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"🔴 <b>جهت:</b> SHORT\n"
+                    f"🎯 <b>تارگت ۱:</b> <code>{tp1:,.4f}</code> (تاچ شد ✅)\n"
+                    f"🛡 <b>اقدام الزامی:</b> ۵۰٪ معامله را ببندید و حد ضرر را روی نقطه ورود (<code>{entry:,.4f}</code>) بگذارید.\n\n"
+                    f"🚀 <b>تارگت نهایی:</b> <code>{tp2:,.4f}</code>\n"
+                    f"#مدیریت_معامله #ریسک_فری #{symbol}"
+                )
+                send_telegram(msg)
+                updated_positions.append(pos)
+                continue
+            elif cur_price >= sl:
+                loss_type = "ریسک‌فری (بدون ضرر)" if status == "TP1_HIT" else "حد ضرر فعال شد"
+                msg = (
+                    f"🛑 <b>[خروج از معامله • {loss_type}]</b>\n\n"
+                    f"🔹 <b>نماد:</b> #{symbol}\n"
+                    f"📉 <b>قیمت خروج:</b> <code>{cur_price:,.4f}</code>\n"
+                    f"🛡 <b>پایان معامله طبق اصل حفظ سرمایه.</b>\n"
+                    f"#مدیریت_معامله #{symbol}"
+                )
+                send_telegram(msg)
+                continue
+            else:
+                updated_positions.append(pos)
 
-⚖️ <b>دستورالعمل حفظ سرمایه:</b>
-• حداکثر ریسک مجاز: ۱٪ از کل مارجین حساب.
-• اهرم پیشنهادی: حداکثر <b>2x یا 3x</b> (اهرم بالا ممنوع ⛔️).
-• پس از تاچ تارگت اول، استاپ به نقطه ورود منتقل شود (Risk-Free).
-━━━━━━━━━━━━━━━━━━━━
-🔗 <a href="https://www.coinglass.com/LiquidationHeatMap/{d['symbol']}">بررسی هیت‌مپ لیکوییدیشن (CoinGlass)</a>
-⏰ <i>ترکیب تایم‌فریم ۴ساعته و ۱ساعته</i>"""
-    return msg
+    save_positions(updated_positions)
 
 def main():
-    is_preview = "--preview" in sys.argv
-    token = os.getenv("BOT_TOKEN", "").strip()
-    chat_id = (os.getenv("CHANNEL_ID") or os.getenv("CHAT_ID") or "").strip()
-
-    if not is_preview and (not token or not chat_id):
-        print("خطا: BOT_TOKEN یا CHANNEL_ID تنظیم نشده است.")
-        return 1
-
-    state = load_state()
-    updated_state = dict(state)
-    symbols = t.DEFAULT_SYMBOLS
-
-    print(f"🚀 در حال اسکن {len(symbols)} جفت‌ارز نقدشونده...")
-
-    for pair in symbols:
-        try:
-            analysis = t.inspect_market_deep(pair)
-            if not analysis:
-                continue
-
-            current_signal = analysis["signal"]
-            prev_signal = state.get(pair)
-
-            if prev_signal == current_signal:
-                print(f"[{pair}] بدون تغییر روند (قبلاً ارسال شده).")
-                continue
-
-            msg = format_telegram_alert(analysis)
-
-            if is_preview:
-                print("\n" + "="*50)
-                print(msg)
-                print("="*50 + "\n")
-                updated_state[pair] = current_signal
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--preview", action="store_true", help="Print alerts without sending")
+    args, _ = parser.parse_known_args()
+    
+    print("🔍 بررسی وضعیت پوزیشن‌های باز و فعال...")
+    track_open_positions()
+    
+    active_symbols = [p["symbol"] for p in load_positions()]
+    print(f"🚀 در حال اسکن {len(SYMBOLS)} جفت‌ارز نقدشونده...")
+    
+    for symbol in SYMBOLS:
+        res = analyze_symbol(symbol)
+        if not res:
+            continue
+        
+        price = res["price"]
+        atr = res["atr"]
+        score = res["score"]
+        direction = res["direction"]
+        
+        # 1. Tier 1: Confirmed Trade Setup (Score >= 70)
+        if score >= 70:
+            if symbol in active_symbols:
+                continue # Already have an active position
+            risk = 1.5 * atr
+            if direction == "LONG":
+                sl = price - risk
+                tp1 = price + (1.5 * risk)
+                tp2 = price + (2.5 * risk)
+                dir_emoji = "🟢 LONG 🟢"
             else:
-                ok = t.send_telegram(token, chat_id, msg)
-                if ok:
-                    print(f"✅ سیگنال {pair} با موفقیت به تلگرام فرستاده شد.")
-                    updated_state[pair] = current_signal
-                else:
-                    print(f"❌ خطا در ارسال تلگرام {pair}")
-
+                sl = price + risk
+                tp1 = price - (1.5 * risk)
+                tp2 = price - (2.5 * risk)
+                dir_emoji = "🔴 SHORT 🔴"
+                
+            reasons_str = "\n".join([f"  ▫️ {r}" for r in res["reasons"][:4]])
+            msg = (
+                f"⚡️ 🎯 <b>[سیگنال قطعی • تاییدیه چندگانه]</b>\n\n"
+                f"🔹 <b>جفت‌ارز:</b> #{symbol}\n"
+                f"📊 <b>جهت معامله:</b> {dir_emoji}\n"
+                f"⭐️ <b>امتیاز استراتژی:</b> <code>{score}/100</code>\n\n"
+                f"📍 <b>نقطه ورود:</b> <code>{price:,.4f}</code>\n"
+                f"🛑 <b>حد ضرر (SL):</b> <code>{sl:,.4f}</code>\n"
+                f"🎯 <b>تارگت اول (TP1):</b> <code>{tp1:,.4f}</code> (سیو ۵۰٪ + ریسک‌فری)\n"
+                f"🚀 <b>تارگت دوم (TP2):</b> <code>{tp2:,.4f}</code>\n\n"
+                f"🔍 <b>دلایل ورود و تاییده‌ها:</b>\n{reasons_str}\n\n"
+                f"⚖️ <b>اهرم پیشنهادی:</b> <code>2x - 3x</code> (حداکثر ۱ الی ۲ درصد ریسک سرمایه)\n"
+                f"#سیگنال_معاملاتی #{symbol} #حفظ_سرمایه"
+            )
+            send_telegram(msg)
+            
+            # Save to active positions
+            positions = load_positions()
+            positions.append({
+                "symbol": symbol,
+                "direction": direction,
+                "entry": price,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "status": "OPEN",
+                "leverage": 2,
+                "opened_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            })
+            save_positions(positions)
+            active_symbols.append(symbol)
             time.sleep(1)
 
-        except Exception as e:
-            print(f"خطا در جفت‌ارز {pair}: {e}")
-
-    if not is_preview:
-        save_state(updated_state)
-
-    return 0
+        # 2. Tier 2: Market Radar / Setup Brewing (Score 60-69)
+        elif 60 <= score < 70:
+            if symbol in active_symbols:
+                continue
+            dir_str = "صعودی (Long Watch)" if direction == "LONG" else "نزولی (Short Watch)"
+            reasons_str = "\n".join([f"  ▫️ {r}" for r in res["reasons"][:3]])
+            msg = (
+                f"👁 📡 <b>[رادار بازار • موقعیت در حال شکل‌گیری]</b>\n\n"
+                f"🔹 <b>جفت‌ارز:</b> #{symbol}\n"
+                f"🔭 <b>جهت احتمالی:</b> {dir_str}\n"
+                f"📈 <b>امتیاز آمادگی:</b> <code>{score}/100</code>\n"
+                f"💲 <b>قیمت فعلی:</b> <code>{price:,.4f}</code>\n\n"
+                f"🔍 <b>نشانه‌های اولیه:</b>\n{reasons_str}\n\n"
+                f"⚠️ <i>این پیام هشدار واچ‌لیست است؛ تا صدور تاییدیه قطعی صبور باشید.</i>\n"
+                f"#رادار_مارکت #{symbol} #تحت_نظر"
+            )
+            send_telegram(msg)
+            time.sleep(1)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
