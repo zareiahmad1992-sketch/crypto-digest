@@ -17,17 +17,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Install Dependencies
         run: pip install requests beautifulsoup4
+
+      - name: Check Binance API reachability from runner
+        run: |
+          for host in data-api.binance.vision fapi.binance.com; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://$host/fapi/v1/ping")
+            echo "::notice::$host responded HTTP $code"
+          done
 
       - name: Scan Top 40 Crypto & Track Trade Results
         env:
@@ -42,4 +49,4 @@ jobs:
           git add data/
           git commit -m "Update trade state and history [skip ci]" || echo "No state changes"
           git pull --rebase origin main
-          git push origin main
+          git push origin main || echo "Push skipped (will retry next run)"

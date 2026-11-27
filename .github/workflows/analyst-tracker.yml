@@ -6,7 +6,7 @@ on:
     - cron: '3,13,23,33,43,53 * * * *'
   workflow_dispatch:
 
-permissions:
+concurrency:\n  group: crypto-state\n  cancel-in-progress: false\n\npermissions:
   contents: write
 
 jobs:
@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 

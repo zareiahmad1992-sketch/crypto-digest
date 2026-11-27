@@ -16,6 +16,17 @@ import argparse
 import requests
 from datetime import datetime, timezone
 
+
+# --- diagnostics: log any non-200 API response (geo-block, rate-limit, etc.) ---
+_orig_requests_get = requests.get
+def _logging_get(url, *args, **kwargs):
+    r = _orig_requests_get(url, *args, **kwargs)
+    if r.status_code != 200:
+        print(f"[API] HTTP {r.status_code}: {url}")
+    return r
+requests.get = _logging_get
+# --- end diagnostics ---
+
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("CHANNEL_ID", "").strip()
 
@@ -93,7 +104,7 @@ def save_json(path, data):
 
 
 def get_klines(symbol, interval="1h", limit=100):
-    url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    url = f"https://data-api.binance.vision/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
     try:
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
@@ -104,7 +115,7 @@ def get_klines(symbol, interval="1h", limit=100):
 
 
 def get_live_price(symbol):
-    url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
+    url = f"https://data-api.binance.vision/fapi/v1/ticker/price?symbol={symbol}"
     try:
         r = requests.get(url, timeout=8)
         if r.status_code == 200:
@@ -115,7 +126,7 @@ def get_live_price(symbol):
 
 
 def get_funding_rate(symbol):
-    url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
+    url = f"https://data-api.binance.vision/fapi/v1/premiumIndex?symbol={symbol}"
     try:
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
