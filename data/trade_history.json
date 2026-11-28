@@ -54,7 +54,40 @@
       "leverage": 2,
       "opened_at": "2026-11-28 02:50:11",
       "closed_at": "2026-11-28 10:59:38"
+    },
+    {
+      "symbol": "GALAUSDT",
+      "direction": "LONG",
+      "entry": 0.00142,
+      "exit_price": 0.00139,
+      "result": "SL_LOSS",
+      "pnl_pct": -4.23,
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:11:08",
+      "closed_at": "2026-11-28 18:52:47"
+    },
+    {
+      "symbol": "SEIUSDT",
+      "direction": "LONG",
+      "entry": 0.03845,
+      "exit_price": 0.03740107142857143,
+      "result": "SL_LOSS",
+      "pnl_pct": -5.46,
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:00",
+      "closed_at": "2026-11-28 18:52:51"
+    },
+    {
+      "symbol": "ICPUSDT",
+      "direction": "SHORT",
+      "entry": 2.011,
+      "exit_price": 1.9183214285714285,
+      "result": "TP2_WIN",
+      "pnl_pct": 7.37,
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:07",
+      "closed_at": "2026-11-28 18:52:52"
     }
   ],
-  "last_report_date": ""
+  "last_report_date": "2026-11-28"
 }
