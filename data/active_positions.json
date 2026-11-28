@@ -1,18 +1,6 @@
 {
   "positions": [
     {
-      "symbol": "FETUSDT",
-      "direction": "LONG",
-      "entry": 0.1269,
-      "sl": 0.12317142857142858,
-      "tp1": 0.13249285714285713,
-      "tp2": 0.13622142857142858,
-      "status": "OPEN",
-      "leverage": 2,
-      "opened_at": "2026-11-27 22:10:45",
-      "opened_ts_ms": 1795817445168
-    },
-    {
       "symbol": "FTMUSDT",
       "direction": "LONG",
       "entry": 0.6994,
@@ -85,30 +73,6 @@
       "opened_ts_ms": 1795834188684
     },
     {
-      "symbol": "LTCUSDT",
-      "direction": "LONG",
-      "entry": 44.88,
-      "sl": 44.09892857142857,
-      "tp1": 46.05160714285715,
-      "tp2": 46.83267857142858,
-      "status": "OPEN",
-      "leverage": 2,
-      "opened_at": "2026-11-28 02:49:51",
-      "opened_ts_ms": 1795834191084
-    },
-    {
-      "symbol": "RENDERUSDT",
-      "direction": "LONG",
-      "entry": 1.392,
-      "sl": 1.359535714285714,
-      "tp1": 1.4406964285714285,
-      "tp2": 1.4731607142857142,
-      "status": "OPEN",
-      "leverage": 2,
-      "opened_at": "2026-11-28 02:49:57",
-      "opened_ts_ms": 1795834197614
-    },
-    {
       "symbol": "SEIUSDT",
       "direction": "LONG",
       "entry": 0.03845,
@@ -124,25 +88,13 @@
       "symbol": "ICPUSDT",
       "direction": "SHORT",
       "entry": 2.011,
-      "sl": 2.0480714285714288,
+      "sl": 2.011,
       "tp1": 1.9553928571428572,
       "tp2": 1.9183214285714285,
-      "status": "OPEN",
+      "status": "TP1_HIT",
       "leverage": 2,
       "opened_at": "2026-11-28 02:50:07",
       "opened_ts_ms": 1795834207076
-    },
-    {
-      "symbol": "ETCUSDT",
-      "direction": "LONG",
-      "entry": 5.91,
-      "sl": 5.829642857142858,
-      "tp1": 6.0305357142857146,
-      "tp2": 6.110892857142857,
-      "status": "OPEN",
-      "leverage": 2,
-      "opened_at": "2026-11-28 02:50:11",
-      "opened_ts_ms": 1795834211004
     },
     {
       "symbol": "STXUSDT",
@@ -179,6 +131,138 @@
       "leverage": 2,
       "opened_at": "2026-11-28 02:50:20",
       "opened_ts_ms": 1795834220430
+    },
+    {
+      "symbol": "BTCUSDT",
+      "direction": "SHORT",
+      "entry": 59262.01,
+      "sl": 59694.292857142864,
+      "tp1": 58613.58571428571,
+      "tp2": 58181.30285714286,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:43",
+      "opened_ts_ms": 1795863583299
+    },
+    {
+      "symbol": "ETHUSDT",
+      "direction": "SHORT",
+      "entry": 1647.13,
+      "sl": 1660.7585714285715,
+      "tp1": 1626.687142857143,
+      "tp2": 1613.0585714285714,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:45",
+      "opened_ts_ms": 1795863585660
+    },
+    {
+      "symbol": "BNBUSDT",
+      "direction": "SHORT",
+      "entry": 549.29,
+      "sl": 553.115,
+      "tp1": 543.5524999999999,
+      "tp2": 539.7275,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:48",
+      "opened_ts_ms": 1795863588683
+    },
+    {
+      "symbol": "XRPUSDT",
+      "direction": "SHORT",
+      "entry": 0.9382,
+      "sl": 0.9462892857142857,
+      "tp1": 0.9260660714285714,
+      "tp2": 0.9179767857142858,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:51",
+      "opened_ts_ms": 1795863591167
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "direction": "SHORT",
+      "entry": 6.493,
+      "sl": 6.560714285714286,
+      "tp1": 6.391428571428572,
+      "tp2": 6.323714285714287,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:54",
+      "opened_ts_ms": 1795863594704
+    },
+    {
+      "symbol": "SUIUSDT",
+      "direction": "SHORT",
+      "entry": 0.6632,
+      "sl": 0.6705821428571429,
+      "tp1": 0.6521267857142857,
+      "tp2": 0.644744642857143,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:56",
+      "opened_ts_ms": 1795863596849
+    },
+    {
+      "symbol": "NEARUSDT",
+      "direction": "SHORT",
+      "entry": 2.991,
+      "sl": 3.036857142857143,
+      "tp1": 2.922214285714286,
+      "tp2": 2.876357142857143,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 10:59:59",
+      "opened_ts_ms": 1795863599803
+    },
+    {
+      "symbol": "TIAUSDT",
+      "direction": "SHORT",
+      "entry": 0.3326,
+      "sl": 0.33775357142857143,
+      "tp1": 0.32486964285714287,
+      "tp2": 0.31971607142857145,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 11:00:11",
+      "opened_ts_ms": 1795863611804
+    },
+    {
+      "symbol": "POLUSDT",
+      "direction": "SHORT",
+      "entry": 0.07583,
+      "sl": 0.07656071428571429,
+      "tp1": 0.07473392857142856,
+      "tp2": 0.07400321428571427,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 11:00:15",
+      "opened_ts_ms": 1795863615860
+    },
+    {
+      "symbol": "TRXUSDT",
+      "direction": "SHORT",
+      "entry": 0.3008,
+      "sl": 0.30165714285714285,
+      "tp1": 0.29951428571428573,
+      "tp2": 0.2986571428571429,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 11:00:20",
+      "opened_ts_ms": 1795863620911
+    },
+    {
+      "symbol": "ETCUSDT",
+      "direction": "SHORT",
+      "entry": 5.77,
+      "sl": 5.821428571428571,
+      "tp1": 5.692857142857143,
+      "tp2": 5.6414285714285715,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 11:00:23",
+      "opened_ts_ms": 1795863623146
     }
   ]
 }

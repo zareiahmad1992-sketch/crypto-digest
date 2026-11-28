@@ -10,6 +10,50 @@
       "leverage": 2,
       "opened_at": "2026-11-27 22:10:56",
       "closed_at": "2026-11-28 02:49:27"
+    },
+    {
+      "symbol": "FETUSDT",
+      "direction": "LONG",
+      "entry": 0.1269,
+      "exit_price": 0.12317142857142858,
+      "result": "SL_LOSS",
+      "pnl_pct": -5.88,
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:45",
+      "closed_at": "2026-11-28 10:59:26"
+    },
+    {
+      "symbol": "LTCUSDT",
+      "direction": "LONG",
+      "entry": 44.88,
+      "exit_price": 44.09892857142857,
+      "result": "SL_LOSS",
+      "pnl_pct": -3.48,
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:51",
+      "closed_at": "2026-11-28 10:59:33"
+    },
+    {
+      "symbol": "RENDERUSDT",
+      "direction": "LONG",
+      "entry": 1.392,
+      "exit_price": 1.359535714285714,
+      "result": "SL_LOSS",
+      "pnl_pct": -4.66,
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:57",
+      "closed_at": "2026-11-28 10:59:35"
+    },
+    {
+      "symbol": "ETCUSDT",
+      "direction": "LONG",
+      "entry": 5.91,
+      "exit_price": 5.829642857142858,
+      "result": "SL_LOSS",
+      "pnl_pct": -2.72,
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:11",
+      "closed_at": "2026-11-28 10:59:38"
     }
   ],
   "last_report_date": ""
