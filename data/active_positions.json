@@ -25,18 +25,6 @@
       "opened_ts_ms": 1795817454086
     },
     {
-      "symbol": "ICPUSDT",
-      "direction": "SHORT",
-      "entry": 1.98,
-      "sl": 2.016642857142857,
-      "tp1": 1.9250357142857142,
-      "tp2": 1.888392857142857,
-      "status": "OPEN",
-      "leverage": 2,
-      "opened_at": "2026-11-27 22:10:56",
-      "opened_ts_ms": 1795817456542
-    },
-    {
       "symbol": "XLMUSDT",
       "direction": "SHORT",
       "entry": 0.1261,
@@ -71,6 +59,126 @@
       "leverage": 2,
       "opened_at": "2026-11-27 22:11:08",
       "opened_ts_ms": 1795817468221
+    },
+    {
+      "symbol": "WIFUSDT",
+      "direction": "LONG",
+      "entry": 0.1402,
+      "sl": 0.13636428571428572,
+      "tp1": 0.1459535714285714,
+      "tp2": 0.14978928571428568,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:46",
+      "opened_ts_ms": 1795834186457
+    },
+    {
+      "symbol": "DOTUSDT",
+      "direction": "SHORT",
+      "entry": 0.663,
+      "sl": 0.6738214285714286,
+      "tp1": 0.6467678571428571,
+      "tp2": 0.6359464285714286,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:48",
+      "opened_ts_ms": 1795834188684
+    },
+    {
+      "symbol": "LTCUSDT",
+      "direction": "LONG",
+      "entry": 44.88,
+      "sl": 44.09892857142857,
+      "tp1": 46.05160714285715,
+      "tp2": 46.83267857142858,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:51",
+      "opened_ts_ms": 1795834191084
+    },
+    {
+      "symbol": "RENDERUSDT",
+      "direction": "LONG",
+      "entry": 1.392,
+      "sl": 1.359535714285714,
+      "tp1": 1.4406964285714285,
+      "tp2": 1.4731607142857142,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:49:57",
+      "opened_ts_ms": 1795834197614
+    },
+    {
+      "symbol": "SEIUSDT",
+      "direction": "LONG",
+      "entry": 0.03845,
+      "sl": 0.03740107142857143,
+      "tp1": 0.040023392857142855,
+      "tp2": 0.04107232142857142,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:00",
+      "opened_ts_ms": 1795834200829
+    },
+    {
+      "symbol": "ICPUSDT",
+      "direction": "SHORT",
+      "entry": 2.011,
+      "sl": 2.0480714285714288,
+      "tp1": 1.9553928571428572,
+      "tp2": 1.9183214285714285,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:07",
+      "opened_ts_ms": 1795834207076
+    },
+    {
+      "symbol": "ETCUSDT",
+      "direction": "LONG",
+      "entry": 5.91,
+      "sl": 5.829642857142858,
+      "tp1": 6.0305357142857146,
+      "tp2": 6.110892857142857,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:11",
+      "opened_ts_ms": 1795834211004
+    },
+    {
+      "symbol": "STXUSDT",
+      "direction": "LONG",
+      "entry": 0.2645,
+      "sl": 0.25795357142857145,
+      "tp1": 0.27431964285714283,
+      "tp2": 0.2808660714285714,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:13",
+      "opened_ts_ms": 1795834213329
+    },
+    {
+      "symbol": "FILUSDT",
+      "direction": "SHORT",
+      "entry": 0.527,
+      "sl": 0.5383571428571429,
+      "tp1": 0.5099642857142858,
+      "tp2": 0.49860714285714286,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:15",
+      "opened_ts_ms": 1795834215573
+    },
+    {
+      "symbol": "PENDLEUSDT",
+      "direction": "SHORT",
+      "entry": 1.19,
+      "sl": 1.2146428571428571,
+      "tp1": 1.1530357142857142,
+      "tp2": 1.128392857142857,
+      "status": "OPEN",
+      "leverage": 2,
+      "opened_at": "2026-11-28 02:50:20",
+      "opened_ts_ms": 1795834220430
     }
   ]
 }

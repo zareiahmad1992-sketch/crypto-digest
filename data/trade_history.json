@@ -1,1 +1,16 @@
-{"trades": [], "last_report_date": ""}
+{
+  "trades": [
+    {
+      "symbol": "ICPUSDT",
+      "direction": "SHORT",
+      "entry": 1.98,
+      "exit_price": 2.016642857142857,
+      "result": "SL_LOSS",
+      "pnl_pct": -3.7,
+      "leverage": 2,
+      "opened_at": "2026-11-27 22:10:56",
+      "closed_at": "2026-11-28 02:49:27"
+    }
+  ],
+  "last_report_date": ""
+}
